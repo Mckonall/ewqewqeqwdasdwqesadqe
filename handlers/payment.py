@@ -49,8 +49,8 @@ def create_payment_link(order_id: int, amount: float, description: str) -> str:
             "quantity": 1,
         }],
         mode="payment",
-        success_url="https://t.me/vapecity_bot?start=success",
-        cancel_url="https://t.me/vapecity_bot?start=cancel",
+        success_url="",
+        cancel_url="",
         metadata={"order_id": str(order_id)},
     )
 

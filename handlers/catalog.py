@@ -38,13 +38,13 @@ router = Router()
 
 # Your bot's referral/invite link template. Replace YOUR_BOT_USERNAME with your
 # actual bot username (without @). {user_id} is filled in automatically per user.
-INVITE_LINK_TEMPLATE = "https://t.me/YOUR_BOT_USERNAME?start=ref_{user_id}"
+INVITE_LINK_TEMPLATE = "https://t.me/ZzZazzaPluG_bot"
 
 # Your operator's contact — a @username or a t.me link. Shown as-is to users.
-OPERATOR_CONTACT = "@your_operator_username"
+OPERATOR_CONTACT = "@zaza41124"
 
 # Your news channel link — a t.me link. Shown as-is to users.
-NEWS_CHANNEL_LINK = "https://t.me/YOUR_CHANNEL_USERNAME"
+NEWS_CHANNEL_LINK = "https://t.me/+X5OnMWK939M4MDJi"
 
 
 @router.callback_query(F.data == "available_cities")
