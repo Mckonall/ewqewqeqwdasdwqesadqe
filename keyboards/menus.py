@@ -64,6 +64,12 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
+                    text="ℹ️ Useful Info",
+                    callback_data="menu_useful"
+                )
+            ],
+            [
+                InlineKeyboardButton(
                     text="🧺 Cart",
                     callback_data="menu_cart"
                 )
@@ -171,6 +177,24 @@ COUNTRIES = {
     "Croatia": ["Zagreb", "Split", "Rijeka", "Dubrovnik", "Zadar"]
 }
 
+COUNTRY_FLAGS = {
+    "France": "🇫🇷",
+    "Italy": "🇮🇹",
+    "Spain": "🇪🇸",
+    "Germany": "🇩🇪",
+    "United Kingdom": "🇬🇧",
+    "Greece": "🇬🇷",
+    "Portugal": "🇵🇹",
+    "Netherlands": "🇳🇱",
+    "Austria": "🇦🇹",
+    "Switzerland": "🇨🇭",
+    "Czech Republic": "🇨🇿",
+    "Poland": "🇵🇱",
+    "Belgium": "🇧🇪",
+    "Hungary": "🇭🇺",
+    "Croatia": "🇭🇷"
+}
+
 COUNTRY_LIST = list(COUNTRIES.keys())
 
 
@@ -181,9 +205,11 @@ def countries_keyboard() -> InlineKeyboardMarkup:
 
     for index, country in enumerate(COUNTRY_LIST):
 
+        flag = COUNTRY_FLAGS.get(country, "🌍")
+
         row.append(
             InlineKeyboardButton(
-                text=f"🌍 {country}",
+                text=f"{flag} {country}",
                 callback_data=f"country_{index}"
             )
         )
@@ -211,6 +237,7 @@ def country_cities_keyboard(country_index: int) -> InlineKeyboardMarkup:
 
     country = COUNTRY_LIST[country_index]
     cities = COUNTRIES[country]
+    flag = COUNTRY_FLAGS.get(country, "🏙")
 
     buttons = []
     row = []
@@ -219,7 +246,7 @@ def country_cities_keyboard(country_index: int) -> InlineKeyboardMarkup:
 
         row.append(
             InlineKeyboardButton(
-                text=f"🏙 {city}",
+                text=f"{flag} {city}",
                 callback_data=f"ccity_{country_index}_{city_index}"
             )
         )
@@ -241,6 +268,66 @@ def country_cities_keyboard(country_index: int) -> InlineKeyboardMarkup:
     )
 
     return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+# ---------- Casino (guess the number) ----------
+
+CASINO_COST = 2.5
+CASINO_PRIZE = 50.0
+CASINO_MAX_NUMBER = 30
+
+
+def casino_numbers_keyboard() -> InlineKeyboardMarkup:
+
+    buttons = []
+    row = []
+
+    for number in range(1, CASINO_MAX_NUMBER + 1):
+
+        row.append(
+            InlineKeyboardButton(
+                text=str(number),
+                callback_data=f"casino_guess_{number}"
+            )
+        )
+
+        if len(row) == 5:
+            buttons.append(row)
+            row = []
+
+    if row:
+        buttons.append(row)
+
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="⬅️ Back",
+                callback_data="back_to_welcome"
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def casino_result_keyboard() -> InlineKeyboardMarkup:
+
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🎰 Play Again",
+                    callback_data="menu_casino"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="⬅️ Back",
+                    callback_data="back_to_welcome"
+                )
+            ]
+        ]
+    )
 
 
 # ---------- Reviews (placeholder data) ----------
@@ -300,6 +387,34 @@ def review_detail_keyboard() -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text="⬅️ Back to Reviews",
                     callback_data="menu_reviews"
+                )
+            ]
+        ]
+    )
+
+
+# ---------- Useful Info ----------
+
+USEFUL_INFO_TEXT = (
+    "ℹ️ <b>Useful Information</b>\n\n"
+    "• Delivery usually takes 1 day depending on the city.\n"
+    "• All orders are packed discreetly.\n"
+    "• 🚚 Delivery to your address(treasure)📍\n"
+    "• If you have any issue with your order, contact the Operator.\n"
+    "• Top up your balance before placing an order — see 💰 Top Up Balance.\n"
+    "• Check 📋 Reviews to see feedback from other customers.\n\n"
+    "If you have questions not covered here, use 🥬 Operator to reach support."
+)
+
+
+def useful_info_keyboard() -> InlineKeyboardMarkup:
+
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="⬅️ Back",
+                    callback_data="back_to_welcome"
                 )
             ]
         ]

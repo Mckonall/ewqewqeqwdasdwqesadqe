@@ -1,3 +1,5 @@
+import random
+
 from aiogram import Router, F
 from aiogram.types import (
     CallbackQuery,
@@ -19,6 +21,11 @@ from keyboards.menus import (
     product_keyboard,
     reviews_keyboard,
     review_detail_keyboard,
+    casino_numbers_keyboard,
+    casino_result_keyboard,
+    CASINO_COST,
+    CASINO_PRIZE,
+    CASINO_MAX_NUMBER,
     COUNTRY_LIST,
     COUNTRIES,
     REVIEWS
@@ -26,6 +33,18 @@ from keyboards.menus import (
 
 
 router = Router()
+
+# ---------- EDIT ME: put your real invite link / operator contact here ----------
+
+# Your bot's referral/invite link template. Replace YOUR_BOT_USERNAME with your
+# actual bot username (without @). {user_id} is filled in automatically per user.
+INVITE_LINK_TEMPLATE = "https://t.me/YOUR_BOT_USERNAME?start=ref_{user_id}"
+
+# Your operator's contact — a @username or a t.me link. Shown as-is to users.
+OPERATOR_CONTACT = "@your_operator_username"
+
+# Your news channel link — a t.me link. Shown as-is to users.
+NEWS_CHANNEL_LINK = "https://t.me/YOUR_CHANNEL_USERNAME"
 
 
 @router.callback_query(F.data == "available_cities")
@@ -425,17 +444,109 @@ async def review_detail(callback: CallbackQuery):
     await callback.answer()
 
 
+@router.callback_query(F.data == "menu_casino")
+async def casino_menu(callback: CallbackQuery):
+
+    await callback.message.edit_caption(
+        caption=(
+            f"🎰 <b>Casino — Guess the Number</b>\n\n"
+            f"💵 <b>Cost:</b> ${CASINO_COST:.2f} per attempt\n"
+            f"🎯 <b>Prize:</b> ${CASINO_PRIZE:.2f} if you guess right\n"
+            f"🔢 Pick a number from 1 to {CASINO_MAX_NUMBER}.\n"
+            f"You get <b>one guess</b> per attempt — good luck!"
+        ),
+        parse_mode="HTML",
+        reply_markup=casino_numbers_keyboard()
+    )
+
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("casino_guess_"))
+async def casino_guess(callback: CallbackQuery):
+
+    try:
+        guess = int(callback.data.split("_")[2])
+
+    except (IndexError, ValueError):
+
+        await callback.answer(
+            "Invalid number.",
+            show_alert=True
+        )
+
+        return
+
+    async with async_session() as session:
+
+        result = await session.execute(
+            select(User).where(
+                User.telegram_id == callback.from_user.id
+            )
+        )
+
+        user = result.scalar_one_or_none()
+
+        if user is None:
+            await callback.answer(
+                "Please send /start again.",
+                show_alert=True
+            )
+            return
+
+        if user.balance < CASINO_COST:
+            await callback.answer(
+                f"⚠️ Insufficient balance. You need ${CASINO_COST:.2f} "
+                f"to play. Top up your balance first.",
+                show_alert=True
+            )
+            return
+
+        user.balance -= CASINO_COST
+
+        winning_number = random.randint(1, CASINO_MAX_NUMBER)
+        won = guess == winning_number
+
+        if won:
+            user.balance += CASINO_PRIZE
+
+        await session.commit()
+
+        new_balance = user.balance
+
+    if won:
+        text = (
+            f"🎉 <b>Jackpot!</b>\n\n"
+            f"You guessed <b>{guess}</b> and the number was "
+            f"<b>{winning_number}</b> — correct!\n\n"
+            f"💰 You won <b>${CASINO_PRIZE:.2f}</b>\n"
+            f"💳 New balance: <b>${new_balance:.2f}</b>"
+        )
+    else:
+        text = (
+            f"😔 <b>Not this time.</b>\n\n"
+            f"You guessed <b>{guess}</b>, the number was "
+            f"<b>{winning_number}</b>.\n\n"
+            f"💵 ${CASINO_COST:.2f} was deducted.\n"
+            f"💳 Balance: <b>${new_balance:.2f}</b>"
+        )
+
+    await callback.message.edit_caption(
+        caption=text,
+        parse_mode="HTML",
+        reply_markup=casino_result_keyboard()
+    )
+
+    await callback.answer()
+
+
 # ---------- Placeholder handlers for menu buttons not yet built ----------
-# NOTE: "menu_topup" was removed from this set — it's now handled by
-# handlers/payment.py's real Top Up Balance flow.
+# NOTE: "menu_topup" and "menu_casino" were removed from this set —
+# they're now handled by their own dedicated flows above / in payment.py.
+# "menu_chat" also has its own dedicated handler below (static message).
 
 @router.callback_query(F.data.in_({
-    "menu_lottery",
-    "menu_invite",
-    "menu_casino",
-    "menu_operator",
-    "menu_news",
-    "menu_chat"
+    "menu_lottery"
 }))
 async def menu_placeholder(callback: CallbackQuery):
 
@@ -443,3 +554,94 @@ async def menu_placeholder(callback: CallbackQuery):
         "🚧 This section is coming soon.",
         show_alert=True
     )
+
+
+@router.callback_query(F.data == "menu_chat")
+async def menu_chat(callback: CallbackQuery):
+
+    await callback.answer(
+        "🔒 Chat is available from 3 purchases.",
+        show_alert=True
+    )
+
+
+@router.callback_query(F.data == "menu_invite")
+async def menu_invite(callback: CallbackQuery):
+
+    link = INVITE_LINK_TEMPLATE.format(user_id=callback.from_user.id)
+
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="⬅️ Back",
+                    callback_data="back_to_welcome"
+                )
+            ]
+        ]
+    )
+
+    await callback.message.answer(
+        "👤 <b>Invite a Friend</b>\n\n"
+        "Share your personal invite link:\n"
+        f"<code>{link}</code>\n"
+        "<i>(tap the link to copy it)</i>",
+        parse_mode="HTML",
+        reply_markup=keyboard
+    )
+
+    await callback.answer()
+
+
+@router.callback_query(F.data == "menu_operator")
+async def menu_operator(callback: CallbackQuery):
+
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="⬅️ Back",
+                    callback_data="back_to_welcome"
+                )
+            ]
+        ]
+    )
+
+    await callback.message.answer(
+        "🥬 <b>Operator</b>\n\n"
+        f"Contact our operator: {OPERATOR_CONTACT}",
+        parse_mode="HTML",
+        reply_markup=keyboard
+    )
+
+    await callback.answer()
+
+
+@router.callback_query(F.data == "menu_news")
+async def menu_news(callback: CallbackQuery):
+
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🔔 Open Channel",
+                    url=NEWS_CHANNEL_LINK
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="⬅️ Back",
+                    callback_data="back_to_welcome"
+                )
+            ]
+        ]
+    )
+
+    await callback.message.answer(
+        "🔔 <b>News Channel</b>\n\n"
+        "Stay updated — join our news channel:",
+        parse_mode="HTML",
+        reply_markup=keyboard
+    )
+
+    await callback.answer()

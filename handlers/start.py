@@ -10,7 +10,11 @@ from sqlalchemy import select, func
 
 from database.engine import async_session
 from database.models import User, Order
-from keyboards.menus import main_menu_keyboard
+from keyboards.menus import (
+    main_menu_keyboard,
+    USEFUL_INFO_TEXT,
+    useful_info_keyboard
+)
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 
@@ -168,6 +172,18 @@ async def deny_age(callback: CallbackQuery):
     await callback.message.edit_text(
         "Sorry, access is restricted to users "
         "aged 18 and over."
+    )
+
+    await callback.answer()
+
+
+@router.callback_query(F.data == "menu_useful")
+async def menu_useful(callback: CallbackQuery):
+
+    await callback.message.edit_caption(
+        caption=USEFUL_INFO_TEXT,
+        parse_mode="HTML",
+        reply_markup=useful_info_keyboard()
     )
 
     await callback.answer()
