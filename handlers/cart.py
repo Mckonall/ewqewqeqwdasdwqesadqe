@@ -59,40 +59,107 @@ async def add_to_cart(callback: CallbackQuery):
     await callback.answer("Added to cart! 🧺", show_alert=False)
 
 
+async def render_cart(callback: CallbackQuery, session, user):
+    """
+    Builds the cart text + keyboard for the given user and sends it
+    as a new message (used by show_cart and after removing an item).
+    Returns True if the cart had items, False if it was empty.
+    """
+
+    result = await session.execute(
+        select(CartItem)
+        .options(selectinload(CartItem.product))
+        .where(CartItem.user_id == user.id)
+    )
+    items = result.scalars().all()
+
+    if not items:
+        return False
+
+    text = "🧺 <b>Your Cart:</b>\n\n"
+    total = 0
+
+    buttons = []
+
+    for item in items:
+        subtotal = item.product.price * item.quantity
+        total += subtotal
+        text += f"{item.product.name} × {item.quantity} = ${subtotal:.2f}\n"
+
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=f"❌ Remove {item.product.name}",
+                    callback_data=f"cart_remove_{item.id}"
+                )
+            ]
+        )
+
+    text += f"\n<b>Total: ${total:.2f}</b>\n💰 <b>Your balance: ${user.balance:.2f}</b>"
+
+    buttons.append(
+        [InlineKeyboardButton(text="✅ Checkout (pay from balance)", callback_data="checkout")]
+    )
+    buttons.append(
+        [InlineKeyboardButton(text="⬅️ Back", callback_data="back_to_welcome")]
+    )
+
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+
+    await callback.message.answer(text, reply_markup=kb, parse_mode="HTML")
+
+    return True
+
+
 @router.callback_query(F.data == "menu_cart")
 async def show_cart(callback: CallbackQuery):
     async with async_session() as session:
         user = await get_user(session, callback.from_user.id)
 
-        result = await session.execute(
-            select(CartItem)
-            .options(selectinload(CartItem.product))
-            .where(CartItem.user_id == user.id)
-        )
-        items = result.scalars().all()
+        await callback.message.delete()
 
-        if not items:
+        has_items = await render_cart(callback, session, user)
+
+        if not has_items:
             await callback.answer("Your cart is empty.", show_alert=True)
             return
 
-        text = "🧺 <b>Your Cart:</b>\n\n"
-        total = 0
-        for item in items:
-            subtotal = item.product.price * item.quantity
-            total += subtotal
-            text += f"{item.product.name} × {item.quantity} = ${subtotal:.2f}\n"
+    await callback.answer()
 
-        text += f"\n<b>Total: ${total:.2f}</b>\n💰 <b>Your balance: ${user.balance:.2f}</b>"
 
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="✅ Checkout (pay from balance)", callback_data="checkout")],
-            [InlineKeyboardButton(text="⬅️ Back", callback_data="back_to_welcome")]
-        ])
+@router.callback_query(F.data.startswith("cart_remove_"))
+async def remove_from_cart(callback: CallbackQuery):
+
+    try:
+        cart_item_id = int(callback.data.split("_")[2])
+    except (IndexError, ValueError):
+        await callback.answer("Item not found.", show_alert=True)
+        return
+
+    async with async_session() as session:
+
+        result = await session.execute(
+            select(CartItem).where(CartItem.id == cart_item_id)
+        )
+        cart_item = result.scalar_one_or_none()
+
+        user = await get_user(session, callback.from_user.id)
+
+        if cart_item is None or cart_item.user_id != user.id:
+            await callback.answer("Item not found.", show_alert=True)
+            return
+
+        await session.delete(cart_item)
+        await session.commit()
 
         await callback.message.delete()
-        await callback.message.answer(text, reply_markup=kb, parse_mode="HTML")
 
-    await callback.answer()
+        has_items = await render_cart(callback, session, user)
+
+        if not has_items:
+            await callback.message.answer("🧺 Your cart is now empty.")
+
+    await callback.answer("Removed from cart.")
 
 
 @router.callback_query(F.data == "checkout")
@@ -164,4 +231,3 @@ async def checkout(callback: CallbackQuery):
     )
 
     await callback.answer()
-
